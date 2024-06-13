@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Controle de Recursos Humanos - Entrevistas</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            position: relative;
+        }
+        header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        header h1 {
+            font-size: 40px;
+            font-weight: bold;
+        }
+        .form-container {
+            max-width: 600px;
+            margin: auto;
+            padding: 20px;
+            background-color: #f0f0f0;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        .form-group label {
+            display: block;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        .form-group input, .form-group select {
+            width: calc(100% - 10px);
+            padding: 8px;
+            font-size: 16px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        .form-group textarea {
+            width: calc(100% - 10px);
+            padding: 8px;
+            font-size: 16px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            resize: vertical;
+        }
+        .form-group button {
+            padding: 10px 20px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        .form-group button:hover {
+            background-color: #45a049;
+        }
+        .dados {
+            margin-top: 20px;
+            padding: 10px;
+            background-color: #f9f9f9;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .dados h2 {
+            margin-top: 0;
+        }
+        .dados p {
+            margin-bottom: 5px;
+        }
+        .dados .status, .dados .actions {
+            margin-top: 10px;
+            padding: 5px;
+            background-color: #f0f0f0;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        .status label, .actions label {
+            font-weight: bold;
+            display: block;
+            margin-bottom: 5px;
+        }
+        .status select {
+            width: 100%;
+            padding: 8px;
+            font-size: 16px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        .search-container {
+            margin-top: 20px;
+            text-align: center;
+        }
+        .search-container input[type=text] {
+            padding: 8px;
+            font-size: 16px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            width: 50%;
+            margin-right: 10px;
+        }
+        .search-container button {
+            padding: 10px 20px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        .search-container button:hover {
+            background-color: #0056b3;
+        }
+        .watermark {
+            position: fixed;
+            bottom: 10px;
+            right: 10px;
+            opacity: 0.5;
+            font-size: 14px;
+            color: #ccc;
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1 style="font-size: 40px; text-align: center;">Entrevistas Ferreira Santos Transportes</h1>
+</header>
+
+<div class="form-container">
+    <form id="formPrincipal" onsubmit="return false;">
+        <div class="form-group">
+            <label for="nome">Nome Completo:</label>
+            <input type="text" id="nome" name="nome" required>
+        </div>
+        <div class="form-group">
+            <label for="vaga">Vaga Pretendida:</label>
+            <input type="text" id="vaga" name="vaga" required>
+        </div>
+        <div class="form-group">
+            <label for="data">Data da Entrevista:</label>
+            <input type="date" id="data" name="data" required>
+        </div>
+        <div class="form-group">
+            <label for="mensagem">Mensagem Adicional:</label>
+            <textarea id="mensagem" name="mensagem" rows="4"></textarea>
+        </div>
+        <div class="form-group">
+            <button type="button" onclick="adicionarRegistro()">Adicionar Registro</button>
+        </div>
+    </form>
+
+    <div class="search-container">
+        <input type="text" id="inputPesquisa" placeholder="Pesquisar por nome ou status..." onkeyup="filtrarRegistros()">
+        <button onclick="exportarParaExcel()">Exportar para Excel</button>
+    </div>
+
+    <div id="registros" class="dados"></div>
+
+</div>
+
+<div class="watermark">Bruno Ferreira da Cruz</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.16.9/xlsx.full.min.js"></script>
+<script>
+    // Função para verificar se o localStorage é suportado pelo navegador
+    function localStorageSuportado() {
+        try {
+            var teste = '__localStorage_teste__';
+            localStorage.setItem(teste, teste);
+            localStorage.removeItem(teste);
+            return true;
+        } catch (e) {
+            return false;
+        }
+    }
+
+    // Array para armazenar os registros de entrevistas
+    var registros = [];
+    var registroEditando = null;
+
+    // Função para carregar os registros do localStorage, se disponível
+    function carregarRegistros() {
+        if (localStorageSuportado() && localStorage.getItem('registros')) {
+            registros = JSON.parse(localStorage.getItem('registros'));
+            exibirRegistros();
+        }
+    }
+
+    // Função para salvar os registros no localStorage
+    function salvarRegistros() {
+        if (localStorageSuportado()) {
+            localStorage.setItem('registros', JSON.stringify(registros));
+        }
+    }
+
+    // Carregar registros ao iniciar a página
+    carregarRegistros();
+
+    function adicionarRegistro() {
+        // Obtém os valores dos campos do formulário
+        var nome = document.getElementById("nome").value;
+        var vaga = document.getElementById("vaga").value;
+        var data = document.getElementById("data").value;
+        var mensagem = document.getElementById("mensagem").value;
+
+        if (registroEditando !== null) {
+            // Atualiza o registro existente
+            registros[registroEditando].nome = nome;
+            registros[registroEditando].vaga = vaga;
+            registros[registroEditando].data = data;
+            registros[registroEditando].mensagem = mensagem;
+            registroEditando = null;
+        } else {
+            // Cria um novo objeto com os dados da entrevista
+            var entrevista = {
+                nome: nome,
+                vaga: vaga,
+                data: data,
+                mensagem: mensagem,
+                status: "Stand By" // Define um status inicial
+            };
+            // Adiciona o novo objeto ao array de registros
+            registros.push(entrevista);
+        }
+
+        // Salva os registros no localStorage
+        salvarRegistros();
+
+        // Exibe os registros na div correspondente
+        exibirRegistros();
+
+        // Limpa os campos do formulário após adicionar o registro
+        document.getElementById("formPrincipal").reset();
+    }
+
+    function exibirRegistros() {
+        var registrosDiv = document.getElementById("registros");
+        registrosDiv.innerHTML = ""; // Limpa o conteúdo atual
+
+        // Itera sobre os registros e os adiciona à div
+        registros.forEach(function(entrevista, index) {
+            var html = "<div class='dados'>";
+            html += "<h2>Dados Recebidos:</h2>";
+            html += "<p><strong>Nome:</strong> " + entrevista.nome + "</p>";
+            html += "<p><strong>Vaga Pretendida:</strong> " + entrevista.vaga + "</p>";
+            html += "<p><strong>Data da Entrevista:</strong> " + entrevista.data + "</p>";
+            html += "<p><strong>Mensagem Adicional:</strong> " + entrevista.mensagem + "</p>";
+            
+            // Adiciona o campo de status editável
+            html += "<div class='status'>";
+            html += "<label for='status-" + index + "'>Status:</label>";
+            html += "<select id='status-" + index + "' name='status' onchange='atualizarStatus(" + index + ", this.value)'>";
+            html += "<option value='Stand By'" + (entrevista.status === 'Stand By' ? ' selected' : '') + ">Stand By</option>";
+            html += "<option value='Aprovado'" + (entrevista.status === 'Aprovado' ? ' selected' : '') + ">Aprovado</option>";
+            html += "<option value='Reprovado'" + (entrevista.status === 'Reprovado' ? ' selected' : '') + ">Reprovado</option>";
+            html += "<option value='Desistência'" + (entrevista.status === 'Desistência' ? ' selected' : '') + ">Desistência</option>";
+            html += "</select>";
+            html += "</div>";
+
+            // Adiciona os botões de edição e exclusão
+            html += "<div class='actions'>";
+            html += "<button onclick='editarRegistro(" + index + ")'>Editar</button>";
+            html += "<button onclick='excluirRegistro(" + index + ")'>Excluir</button>";
+            html += "</div>";
+
+            html += "</div>";
+            registrosDiv.innerHTML += html;
+        });
+    }
+
+    function atualizarStatus(index, novoStatus) {
+        // Atualiza o status no objeto correspondente no array
+        registros[index].status = novoStatus;
+        
+        // Salva os registros atualizados no localStorage
+        salvarRegistros();
+
+        // Exibe mensagem de sucesso (simulação)
+        alert("Status atualizado para '" + novoStatus + "'!");
+    }
+
+    function excluirRegistro(index) {
+        // Remove o registro do array
+        registros.splice(index, 1);
+
+        // Salva os registros atualizados no localStorage
+        salvarRegistros();
+
+        // Exibe os registros atualizados
+        exibirRegistros();
+    }
+
+    function editarRegistro(index) {
+        // Preenche o formulário com os dados do registro selecionado
+        document.getElementById("nome").value = registros[index].nome;
+        document.getElementById("vaga").value = registros[index].vaga;
+        document.getElementById("data").value = registros[index].data;
+        document.getElementById("mensagem").value = registros[index].mensagem;
+
+        // Define o índice do registro que está sendo editado
+        registroEditando = index;
+    }
+
+    function filtrarRegistros() {
+        var input = document.getElementById('inputPesquisa').value.toLowerCase();
+        var registrosDiv = document.getElementById("registros");
+        registrosDiv.innerHTML = ""; // Limpa o conteúdo atual
+
+        // Filtra os registros com base no nome ou status
+        var registrosFiltrados = registros.filter(function(entrevista) {
+            return entrevista.nome.toLowerCase().includes(input) || entrevista.status.toLowerCase().includes(input);
+        });
+
+        // Itera sobre os registros filtrados e os adiciona à div
+        registrosFiltrados.forEach(function(entrevista, index) {
+            var html = "<div class='dados'>";
+            html += "<h2>Dados Recebidos:</h2>";
+            html += "<p><strong>Nome:</strong> " + entrevista.nome + "</p>";
+            html += "<p><strong>Vaga Pretendida:</strong> " + entrevista.vaga + "</p>";
+            html += "<p><strong>Data da Entrevista:</strong> " + entrevista.data + "</p>";
+            html += "<p><strong>Mensagem Adicional:</strong> " + entrevista.mensagem + "</p>";
+            
+            // Adiciona o campo de status editável
+            html += "<div class='status'>";
+            html += "<label for='status-" + index + "'>Status:</label>";
+            html += "<select id='status-" + index + "' name='status' onchange='atualizarStatus(" + index + ", this.value)'>";
+            html += "<option value='Stand By'" + (entrevista.status === 'Stand By' ? ' selected' : '') + ">Stand By</option>";
+            html += "<option value='Aprovado'" + (entrevista.status === 'Aprovado' ? ' selected' : '') + ">Aprovado</option>";
+            html += "<option value='Reprovado'" + (entrevista.status === 'Reprovado' ? ' selected' : '') + ">Reprovado</option>";
+            html += "<option value='Desistência'" + (entrevista.status === 'Desistência' ? ' selected' : '') + ">Desistência</option>";
+            html += "</select>";
+            html += "</div>";
+
+            // Adiciona os botões de edição e exclusão
+            html += "<div class='actions'>";
+            html += "<button onclick='editarRegistro(" + index + ")'>Editar</button>";
+            html += "<button onclick='excluirRegistro(" + index + ")'>Excluir</button>";
+            html += "</div>";
+
+            html += "</div>";
+            registrosDiv.innerHTML += html;
+        });
+    }
+
+    function exportarParaExcel() {
+        var ws_data = [["Nome", "Vaga Pretendida", "Data da Entrevista", "Mensagem Adicional", "Status"]];
+        registros.forEach(function(entrevista) {
+            ws_data.push([entrevista.nome, entrevista.vaga, entrevista.data, entrevista.mensagem, entrevista.status]);
+        });
+
+        var wb = XLSX.utils.book_new();
+        var ws = XLSX.utils.aoa_to_sheet(ws_data);
+        XLSX.utils.book_append_sheet(wb, ws, "Entrevistas");
+        XLSX.writeFile(wb, "Entrevistas.xlsx");
+    }
+
+    // Exibir registros ao carregar a página
+    exibirRegistros();
+</script>
+
+</body>
+</html>
